@@ -1,77 +1,49 @@
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-    <!-- Background -->
-    <div
-      class="absolute inset-0 bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-    ></div>
-
-    <!-- Decorative Elements -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <!-- Gradient Orbs -->
-      <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
-
-      <!-- Grid Pattern -->
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
-    </div>
-
-    <!-- Content Container -->
-    <div class="relative z-10 w-full max-w-md">
-      <!-- Logo/Brand -->
-      <div class="mb-8 text-center">
-        <!-- Custom Logo or Default Logo -->
-        <template v-if="settingsLoaded">
-          <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30"
-          >
-            <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
-          </div>
-          <h1 class="text-gradient mb-2 text-3xl font-bold">
-            {{ siteName }}
-          </h1>
-          <p class="text-sm text-gray-500 dark:text-dark-400">
-            {{ siteSubtitle }}
-          </p>
-        </template>
+  <div class="auth-experience">
+    <AtmosphereBackground />
+    <aside class="auth-brand-panel">
+      <RouterLink to="/" class="auth-brand-link"><img :src="siteLogo || '/logo.svg'" alt="" /><span>{{ siteName }}</span><span class="auth-brand-dot">.</span></RouterLink>
+      <div class="auth-brand-copy"><p class="experience-kicker">{{ t('experience.eyebrow') }}</p><h2>{{ t('experience.authTitle') }}</h2><p>{{ t('experience.authDescription') }}</p></div>
+      <GatewayOrbit />
+      <div class="auth-brand-footer"><span>{{ t('experience.workspace') }}</span><span>{{ t('experience.homeProtocols') }}</span></div>
+    </aside>
+    <section class="auth-form-panel">
+      <div class="auth-topbar"><RouterLink to="/" class="auth-back-link"><Icon name="arrowLeft" size="sm" />{{ t('experience.backHome') }}</RouterLink><div class="auth-theme-controls"><button class="experience-theme-toggle" :aria-label="isDark ? t('home.switchToLight') : t('home.switchToDark')" :aria-pressed="isDark" @click="toggleTheme"><Icon :name="isDark ? 'sun' : 'moon'" size="md" /></button><LocaleSwitcher text-only /></div></div>
+      <div class="auth-form-content">
+        <div v-if="settingsLoaded" class="auth-form-brand"><img :src="siteLogo || '/logo.svg'" alt="" /><span>{{ siteName }}</span></div>
+        <nav v-if="showAccountTabs" class="auth-account-tabs" :aria-label="t('experience.accountAccess')">
+          <RouterLink to="/login" :aria-current="route.path === '/login' ? 'page' : undefined">{{ t('auth.signIn') }}</RouterLink>
+          <RouterLink to="/register" :aria-current="route.path === '/register' ? 'page' : undefined">{{ t('auth.createAccount') }}</RouterLink>
+        </nav>
+        <div class="auth-form-card"><slot /></div>
+        <div class="mt-6 text-center text-sm"><slot name="footer" /></div>
+        <p class="auth-form-copyright">&copy; {{ currentYear }} {{ siteName }}</p>
       </div>
-
-      <!-- Card Container -->
-      <div class="card-glass rounded-2xl p-8 shadow-glass">
-        <slot />
-      </div>
-
-      <!-- Footer Links -->
-      <div class="mt-6 text-center text-sm">
-        <slot name="footer" />
-      </div>
-
-      <!-- Copyright -->
-      <div class="mt-8 text-center text-xs text-gray-400 dark:text-dark-500">
-        &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
-      </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import AtmosphereBackground from '@/components/brand/AtmosphereBackground.vue'
+import { useTheme } from '@/composables/useTheme'
+import { resolveSiteName } from '@/constants/branding'
+import GatewayOrbit from '@/components/brand/GatewayOrbit.vue'
+import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { useI18n } from 'vue-i18n'
 import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores'
 import { sanitizeUrl } from '@/utils/url'
 
+const { t } = useI18n()
+const { isDark, toggleTheme } = useTheme()
 const appStore = useAppStore()
+const route = useRoute()
+const showAccountTabs = computed(() => !appStore.backendModeEnabled && ['/login', '/register'].includes(route.path))
 
-const siteName = computed(() => appStore.siteName || 'Sub2API')
+const siteName = computed(() => resolveSiteName(appStore.siteName))
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'Subscription to API Conversion Platform')
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 const currentYear = computed(() => new Date().getFullYear())
@@ -80,9 +52,3 @@ onMounted(() => {
   appStore.fetchPublicSettings()
 })
 </script>
-
-<style scoped>
-.text-gradient {
-  @apply bg-gradient-to-r from-primary-600 to-primary-500 bg-clip-text text-transparent;
-}
-</style>

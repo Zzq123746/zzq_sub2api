@@ -11,6 +11,7 @@
         </p>
       </div>
 
+      <p v-if="errorMessage" role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ errorMessage }}</p>
       <!-- Invalid Link State -->
       <div v-if="isInvalidLink" class="space-y-6">
         <div class="rounded-xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-800/50 dark:bg-amber-900/20">
@@ -220,6 +221,7 @@ const appStore = useAppStore()
 const isLoading = ref<boolean>(false)
 const isSuccess = ref<boolean>(false)
 const errorMessage = ref<string>('')
+const tokenRejected = ref(false)
 const showPassword = ref<boolean>(false)
 const showConfirmPassword = ref<boolean>(false)
 
@@ -248,16 +250,16 @@ watch(validationToastMessage, (value, previousValue) => {
 })
 
 // Check if the reset link is valid (has email and token)
-const isInvalidLink = computed(() => !email.value || !token.value)
+const isInvalidLink = computed(() => !isSuccess.value && (!email.value || !token.value || tokenRejected.value))
 
 // ==================== Lifecycle ====================
 
 onMounted(() => {
   // Get email and token from URL query parameters
-  email.value = (route.query.email as string) || ''
-  token.value = (route.query.token as string) || ''
+  email.value = typeof route.query.email === 'string' ? route.query.email : ''
+  token.value = typeof route.query.token === 'string' ? route.query.token : ''
 
-  if (!email.value || !token.value) {
+  if (!email.value || !token.value || tokenRejected.value) {
     appStore.showError(t('auth.invalidResetLink'))
   }
 })
@@ -294,6 +296,7 @@ function validateForm(): boolean {
 // ==================== Form Handlers ====================
 
 async function handleSubmit(): Promise<void> {
+  if (isLoading.value || isInvalidLink.value) return
   errorMessage.value = ''
 
   if (!validateForm()) {
@@ -309,13 +312,17 @@ async function handleSubmit(): Promise<void> {
       new_password: formData.password
     })
 
+    formData.password = ''
+    formData.confirmPassword = ''
+    token.value = ''
     isSuccess.value = true
     appStore.showSuccess(t('auth.passwordResetSuccess'))
   } catch (error: unknown) {
-    const err = error as { message?: string; response?: { data?: { detail?: string; code?: string } } }
+    const err = error as { reason?: string; message?: string; response?: { data?: { detail?: string; code?: string } } }
 
     // Check for invalid/expired token error
-    if (err.response?.data?.code === 'INVALID_RESET_TOKEN') {
+    if (err.reason === 'INVALID_RESET_TOKEN' || err.response?.data?.code === 'INVALID_RESET_TOKEN') {
+      tokenRejected.value = true
       errorMessage.value = t('auth.invalidOrExpiredToken')
     } else if (err.response?.data?.detail) {
       errorMessage.value = err.response.data.detail

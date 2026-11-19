@@ -11,8 +11,13 @@
         </p>
       </div>
 
+      <p v-if="errorMessage" role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ errorMessage }}</p>
+      <div v-if="settingsFailed || (settingsLoaded && !passwordResetEnabled)" class="space-y-4" role="status">
+        <p class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">{{ t(settingsFailed ? 'experience.recoverySettingsFailed' : 'experience.recoveryUnavailable') }}</p>
+        <button v-if="settingsFailed" class="btn btn-secondary w-full" @click="loadSettings">{{ t('experience.recoveryRetry') }}</button>
+      </div>
       <!-- Success State -->
-      <div v-if="isSubmitted" class="space-y-6">
+      <div v-else-if="isSubmitted" class="space-y-6">
         <div class="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-800/50 dark:bg-green-900/20">
           <div class="flex flex-col items-center gap-4 text-center">
             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-800/50">
@@ -20,7 +25,7 @@
             </div>
             <div>
               <h3 class="text-lg font-semibold text-green-800 dark:text-green-200">
-                {{ t('auth.resetEmailSent') }}
+                {{ t('experience.recoverySubmitted') }}
               </h3>
               <p class="mt-2 text-sm text-green-700 dark:text-green-300">
                 {{ t('auth.resetEmailSentHint') }}
@@ -29,6 +34,9 @@
           </div>
         </div>
 
+        <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('experience.recoveryMailHelp') }}</p>
+        <button class="btn btn-secondary w-full" :disabled="cooldown > 0 || isLoading" @click="retryEmail">{{ cooldown > 0 ? t('experience.recoveryCooldown', { seconds: cooldown }) : t('experience.recoveryResend') }}</button>
+        <button class="w-full text-sm text-gray-500" @click="isSubmitted = false">{{ t('experience.recoveryChangeEmail') }}</button>
         <div class="text-center">
           <router-link
             to="/login"
@@ -88,7 +96,7 @@
         <!-- Submit Button -->
         <button
           type="submit"
-          :disabled="isLoading || (turnstileEnabled && !turnstileToken)"
+          :disabled="!settingsLoaded || !passwordResetEnabled || isLoading || cooldown > 0 || (turnstileEnabled && !turnstileToken)"
           class="btn btn-primary w-full"
         >
           <svg
@@ -133,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted, watch } from 'vue'
+import { computed, ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
@@ -149,6 +157,26 @@ const appStore = useAppStore()
 
 // ==================== State ====================
 
+const settingsLoaded = ref(false)
+const settingsFailed = ref(false)
+const passwordResetEnabled = ref(false)
+const cooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | undefined
+function startCooldown() {
+  clearInterval(cooldownTimer)
+  const deadline = Date.now() + 30000
+  cooldown.value = 30
+  cooldownTimer = setInterval(() => {
+    cooldown.value = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+    if (!cooldown.value) clearInterval(cooldownTimer)
+  }, 1000)
+}
+onBeforeUnmount(() => clearInterval(cooldownTimer))
+function retryEmail() {
+  if (cooldown.value || isLoading.value) return
+  isSubmitted.value = false
+  resetCaptchaProof()
+}
 const isLoading = ref<boolean>(false)
 const isSubmitted = ref<boolean>(false)
 const errorMessage = ref<string>('')
@@ -204,9 +232,12 @@ watch(validationToastMessage, (value, previousValue) => {
 
 // ==================== Lifecycle ====================
 
-onMounted(async () => {
+async function loadSettings() {
+  settingsLoaded.value = false
+  settingsFailed.value = false
   try {
     const settings = await getPublicSettings()
+    passwordResetEnabled.value = settings.password_reset_enabled === true
     turnstileEnabled.value = settings.turnstile_enabled
     turnstileSiteKey.value = settings.turnstile_site_key || ''
     tencentCaptchaEnabled.value = settings.tencent_captcha_enabled === true
@@ -217,9 +248,13 @@ onMounted(async () => {
     aliyunCaptchaPrefix.value = settings.aliyun_captcha_prefix || ''
     aliyunCaptchaRegion.value = settings.aliyun_captcha_region || 'cn'
   } catch (error) {
+    settingsFailed.value = true
     console.error('Failed to load public settings:', error)
+  } finally {
+    settingsLoaded.value = true
   }
-})
+}
+onMounted(loadSettings)
 
 // ==================== Turnstile Handlers ====================
 
@@ -288,6 +323,8 @@ function validateForm(): boolean {
 // ==================== Form Handlers ====================
 
 async function handleSubmit(): Promise<void> {
+  if (!settingsLoaded.value || settingsFailed.value || !passwordResetEnabled.value || isLoading.value || cooldown.value) return
+  formData.email = formData.email.trim()
   errorMessage.value = ''
 
   if (!validateForm()) {
@@ -310,7 +347,8 @@ async function handleSubmit(): Promise<void> {
     })
 
     isSubmitted.value = true
-    appStore.showSuccess(t('auth.resetEmailSent'))
+    startCooldown()
+    appStore.showSuccess(t('experience.recoverySubmitted'))
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { detail?: string } } }
 

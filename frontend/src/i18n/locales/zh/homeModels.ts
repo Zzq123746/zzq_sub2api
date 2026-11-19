@@ -1,0 +1,50 @@
+export default {
+  "title": "选对模型，开始你的下一个项目",
+  "intro": "按系列查看模型，比较它们适合的任务。",
+  "filterLabel": "筛选模型系列",
+  "families": {
+    "gpt": "GPT 系列",
+    "claude": "Claude 系列",
+    "gemini": "Gemini 系列"
+  },
+  "searchLabel": "在本系列搜索型号或功能",
+  "searchPlaceholder": "在本系列搜索型号或功能",
+  "count": "{count} 个型号",
+  "pendingPrice": "待定价",
+  "priceLabel": "价格",
+  "noResults": "没有找到匹配的模型",
+  "clearSearch": "清空搜索",
+  "availability": "这里展示模型能力介绍，不代表本站全部开放；可用型号和工具以模型广场与接入说明为准。",
+  "integration": "接入说明",
+  "unit": "美元 / 百万 Token",
+  "input": "输入",
+  "output": "输出",
+  "descriptions": {
+    "gpt_6_astra": "用于复杂推理、代码工程、研究与文档创作；支持图片理解，并可通过工具完成搜索、代码执行和计算机操作。",
+    "gpt_6_1_sol": "用于复杂编程、计算机操作与专业任务；支持图片理解和可调推理，工具调用需要使用 Responses API。",
+    "gpt_6_1_terra": "擅长图片匹配、技术图纸理解、界面操作和文稿润色；支持文本与图片输入，可按任务开启或调整推理。",
+    "gpt_6_luna": "面向目标明确、调用量大的批量任务；支持文本与图片输入、结构化结果和可调推理，可接入工具工作流。",
+    "gpt_5_6_sol": "面向复杂专业任务，支持长文与图片理解、结构化输出和多级推理；可结合搜索、代码执行与计算机操作工具。",
+    "claude_opus_5_5": "适合长任务 Agent、大型代码重构与系统工程，支持图片理解和工具操作。",
+    "claude_sonnet_5_5": "兼顾速度与质量，适合日常编程、数据分析与内容创作，可参与 Agent 工具流程。",
+    "gemini_4_carbon": "适合多模态理解、科学推理与多步骤任务，可接收文本、图片、音频、视频及 PDF 并输出文本。"
+  },
+  "tags": {
+    "deep_reasoning": "深度推理",
+    "research_writing": "研究创作",
+    "complex_coding": "复杂编程",
+    "tool_use": "工具调用",
+    "visual_understanding": "视觉理解",
+    "natural_writing": "自然写作",
+    "code_engineering": "代码工程",
+    "agent_workflows": "Agent 工作流",
+    "high_volume_tasks": "高频任务",
+    "structured_output": "结构化输出",
+    "complex_tasks": "复杂任务",
+    "long_context": "长上下文",
+    "coding": "编程开发",
+    "data_analysis": "数据分析",
+    "multimodal_input": "多模态输入",
+    "complex_reasoning": "复杂推理"
+  }
+}

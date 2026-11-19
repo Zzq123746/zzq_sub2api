@@ -1,8 +1,8 @@
 <template>
-  <div>
-    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+  <div class="payment-method-selector">
+    <p class="mb-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
       {{ t('payment.paymentMethod') }}
-    </label>
+    </p>
     <div
       data-testid="payment-method-grid"
       class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
@@ -13,8 +13,9 @@
         type="button"
         :title="methodLabel(method)"
         :disabled="!method.available"
+        :aria-pressed="selected === method.type"
         :class="[
-          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
+          'payment-method-option relative flex min-h-[64px] min-w-0 flex-col items-center justify-center rounded-xl border px-4 py-3 transition-colors',
           !method.available
             ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
             : selected === method.type
@@ -23,8 +24,11 @@
         ]"
         @click="method.available && emit('select', method.type)"
       >
+        <span v-if="selected === method.type" class="payment-method-check" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none"><path d="m4 8 2.5 2.5L12 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </span>
         <span class="flex w-full min-w-0 items-center justify-center gap-2">
-          <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-7 w-7 shrink-0 object-contain" />
+          <img :src="methodIcon(method.type)" alt="" class="h-7 w-7 shrink-0 object-contain" />
           <span class="flex min-w-0 flex-col items-start leading-none">
             <span data-testid="payment-method-label" class="block w-full truncate text-base font-semibold">
               {{ methodLabel(method) }}
@@ -106,3 +110,11 @@ function methodSelectedClass(type: string): string {
   return 'border-primary-500 bg-primary-50 text-gray-900 shadow-sm dark:bg-primary-950 dark:text-gray-100'
 }
 </script>
+
+<style scoped>
+.payment-method-option:focus-visible { outline: 2px solid var(--experience-accent, #5065e8); outline-offset: 3px; }
+.payment-method-check { position: absolute; top: 4px; right: 4px; width: 14px; height: 14px; color: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  .payment-method-option { transition: none; }
+}
+</style>

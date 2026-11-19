@@ -177,6 +177,8 @@
     </div>
   </aside>
 
+  <QuickNavigation v-if="!isAdminInterface" :items="quickNavigationItems" @navigate="handleMenuItemClick" />
+
   <!-- Mobile Overlay -->
   <transition name="fade">
     <div
@@ -188,6 +190,10 @@
 </template>
 
 <script setup lang="ts">
+import { useInterfaceMode } from '@/composables/useInterfaceMode'
+import { useTheme } from '@/composables/useTheme'
+import QuickNavigation from '@/components/common/QuickNavigation.vue'
+import { flattenNavigation } from '@/composables/useQuickNavigation'
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -237,6 +243,7 @@ function applyFeatureFlags(items: NavItem[]): NavItem[] {
 }
 
 const { t } = useI18n()
+const { isAdminInterface } = useInterfaceMode()
 
 const route = useRoute()
 const router = useRouter()
@@ -250,7 +257,7 @@ const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
 const sidebarNavRef = ref<HTMLElement | null>(null)
-const isDark = ref(document.documentElement.classList.contains('dark'))
+const { isDark, toggleTheme } = useTheme()
 
 const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
 
@@ -866,14 +873,14 @@ const adminNavItems = computed((): NavItem[] => {
   return visible
 })
 
+const quickNavigationItems = computed(() => {
+  if (isAdminInterface.value || appStore.backendModeEnabled) return []
+  const menu = isAdmin.value ? personalNavItems.value : userNavItems.value
+  return flattenNavigation(menu, t('experience.workspace'))
+})
+
 function toggleSidebar() {
   appStore.toggleSidebar()
-}
-
-function toggleTheme() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 
 function closeMobile() {
@@ -937,16 +944,6 @@ function handleGroupClick(item: NavItem) {
     router.push(item.path)
   }
   groupExpandOverrides.value.set(item.path, true)
-}
-
-// Initialize theme
-const savedTheme = localStorage.getItem('theme')
-if (
-  savedTheme === 'dark' ||
-  (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-) {
-  isDark.value = true
-  document.documentElement.classList.add('dark')
 }
 
 // Fetch admin settings (for feature-gated nav items like Ops).

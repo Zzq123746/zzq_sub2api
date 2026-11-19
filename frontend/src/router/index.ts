@@ -185,6 +185,16 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'modelPlaza.title'
     }
   },
+  {
+    path: '/docs/quickstart',
+    name: 'QuickStartGuide',
+    component: () => import('@/views/public/QuickStartView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'API Quick Start',
+      titleKey: 'experience.quickStart'
+    }
+  },
 
   // ==================== User Routes ====================
   {

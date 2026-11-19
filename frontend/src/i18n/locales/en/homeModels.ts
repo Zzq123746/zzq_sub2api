@@ -1,0 +1,50 @@
+export default {
+  "title": "Choose a model for your next project",
+  "intro": "Browse each family to see which models suit your task.",
+  "filterLabel": "Filter model families",
+  "families": {
+    "gpt": "GPT",
+    "claude": "Claude",
+    "gemini": "Gemini"
+  },
+  "searchLabel": "Search this family by model or task",
+  "searchPlaceholder": "Search this family by model or task",
+  "count": "{count} model | {count} models",
+  "pendingPrice": "Pricing coming soon",
+  "priceLabel": "Price",
+  "noResults": "No matching models",
+  "clearSearch": "Clear search",
+  "availability": "These cards describe model capabilities, not site availability. Check Model Plaza and the integration guide for enabled models and tools.",
+  "integration": "Integration guide",
+  "unit": "USD / million tokens",
+  "input": "Input",
+  "output": "Output",
+  "descriptions": {
+    "gpt_6_astra": "For demanding reasoning, coding, research and documents; understands images and can use tools for search, code execution and computer interaction.",
+    "gpt_6_1_sol": "For complex coding, computer interaction and professional work, with image understanding and adjustable reasoning; tools require Responses API.",
+    "gpt_6_1_terra": "For product-image matching, technical drawings, screen interaction and writing revisions; accepts text and images with optional, adjustable reasoning.",
+    "gpt_6_luna": "For focused, high-volume tasks, with text and image input, structured results, adjustable reasoning and tool-based workflows.",
+    "gpt_5_6_sol": "For complex professional tasks, combining long-context text and image understanding, structured output and adjustable reasoning with search and coding tools.",
+    "claude_opus_5_5": "For long-running agents, large code refactors and systems engineering, with image understanding and tool use.",
+    "claude_sonnet_5_5": "Balances speed and quality for everyday coding, data analysis and writing, including agentic tool workflows.",
+    "gemini_4_carbon": "For multimodal understanding, scientific reasoning and multi-step tasks; accepts text, images, audio, video and PDFs and produces text."
+  },
+  "tags": {
+    "deep_reasoning": "Deep reasoning",
+    "research_writing": "Research & writing",
+    "complex_coding": "Complex coding",
+    "tool_use": "Tool use",
+    "visual_understanding": "Visual understanding",
+    "natural_writing": "Natural writing",
+    "code_engineering": "Code engineering",
+    "agent_workflows": "Agent workflows",
+    "high_volume_tasks": "High-volume tasks",
+    "structured_output": "Structured output",
+    "complex_tasks": "Complex tasks",
+    "long_context": "Long context",
+    "coding": "Coding",
+    "data_analysis": "Data analysis",
+    "multimodal_input": "Multimodal input",
+    "complex_reasoning": "Complex reasoning"
+  }
+}

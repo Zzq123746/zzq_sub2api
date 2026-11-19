@@ -28,7 +28,10 @@ function isSafeImageUrl(value: string): boolean {
 
 function injectBranding(html: string, config: { site_name?: string; site_logo?: string }): string {
   let brandedHtml = html
-  const siteName = config.site_name?.trim()
+  const configuredName = config.site_name?.trim()
+  const siteName = !configuredName || configuredName.toLowerCase() === 'sub2api'
+    ? 'GanglAPI'
+    : configuredName
   if (siteName) {
     brandedHtml = brandedHtml.replace(
       /<title>[^<]*<\/title>/i,
@@ -87,7 +90,9 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       checker({
-        vueTsc: true
+        // `pnpm build` runs vue-tsc before Vite; avoid a second concurrent check.
+        enableBuild: false,
+        vueTsc: { tsconfigPath: './tsconfig.app.json' }
       }),
       injectPublicSettings(backendUrl)
     ],
@@ -153,6 +158,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: devPort,
+      strictPort: true,
       proxy: {
         '/api': {
           target: backendUrl,

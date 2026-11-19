@@ -327,6 +327,21 @@ describe('useAppStore', () => {
   // --- 公开设置 ---
 
   describe('公开设置加载', () => {
+    it('旧站点名称在注入配置和 API 刷新后均显示为 GanglAPI', async () => {
+      window.__APP_CONFIG__ = createPublicSettings({ site_name: 'Sub2API' })
+      const store = useAppStore()
+      store.initFromInjectedConfig()
+      expect(store.siteName).toBe('GanglAPI')
+      expect(store.cachedPublicSettings?.site_name).toBe('GanglAPI')
+
+      vi.mocked(getPublicSettings).mockResolvedValueOnce(
+        createPublicSettings({ site_name: 'sub2api' }),
+      )
+      await store.fetchPublicSettings(true)
+      expect(store.siteName).toBe('GanglAPI')
+      expect(window.__APP_CONFIG__?.site_name).toBe('GanglAPI')
+    })
+
     it('并发调用复用并等待同一个请求，包括 force 调用', async () => {
       const deferred = createDeferred<PublicSettings>()
       vi.mocked(getPublicSettings).mockReturnValue(deferred.promise)

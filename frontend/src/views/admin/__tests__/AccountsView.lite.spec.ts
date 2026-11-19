@@ -58,17 +58,26 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
-  return { ...actual, useI18n: () => ({ t: (key: string) => key }) }
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string, values?: Record<string, string | number>) => {
+        if (key === 'admin.accounts.autoRefreshCountdownMinutes') return `Auto refresh: ${values?.minutes}m ${values?.seconds}s`
+        if (key === 'admin.accounts.autoRefreshCountdown') return `Auto refresh: ${values?.seconds}s`
+        return key
+      }
+    })
+  }
 })
 
 const DataTableStub = defineComponent({
-  props: { data: { type: Array, default: () => [] } },
+  props: { data: { type: Array, default: () => [] }, loading: Boolean },
   template: `
     <div>
-      <div v-for="row in data" :key="row.id" :data-account-name="row.name">
+      <template v-if="!loading"><div v-for="row in data" :key="row.id" :data-account-name="row.name">
         <slot name="cell-groups" :row="row" />
         <slot name="cell-actions" :row="row" />
-      </div>
+      </div></template>
     </div>
   `
 })
@@ -101,7 +110,7 @@ function mountView(stubActionMenu = true) {
         AppLayout: { template: '<div><slot /></div>' },
         TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
         DataTable: DataTableStub,
-        AccountTableActions: { template: '<div><slot name="after" /></div>' },
+        AccountTableActions: { template: `<div><button data-test="manual-refresh" @click="$emit('refresh')">refresh</button><slot name="after" /></div>` },
         AccountTableFilters: true,
         AccountBulkActionsBar: true,
         Pagination: true,
@@ -189,6 +198,35 @@ describe('admin AccountsView lite account list', () => {
     wrapper.unmount()
   })
 
+  it('keeps existing rows mounted and busy while a manual list refresh is pending', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const row = wrapper.get('[data-account-name="compact row"]').element
+    let finish: (value: unknown) => void = () => {}
+    listAccounts.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await wrapper.get('[data-test="manual-refresh"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.getComponent(DataTableStub).props('loading')).toBe(false)
+    expect(wrapper.get('[data-account-name="compact row"]').element).toBe(row)
+    expect(wrapper.find('[aria-busy="true"]').attributes()).toHaveProperty('inert')
+    finish({ items: [{ ...listRow, name: 'updated row' }], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    expect(wrapper.get('[data-account-name="updated row"]').element).toBe(row)
+    expect(wrapper.find('[aria-busy="true"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('still shows initial loading when no rows are available', async () => {
+    let finish: (value: unknown) => void = () => {}
+    listAccounts.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.getComponent(DataTableStub).props('loading')).toBe(true)
+    finish({ items: [listRow], total: 1, page: 1, page_size: 20, pages: 1 })
+    await flushPromises()
+    wrapper.unmount()
+  })
+
   it('maps group_ids through the group catalog for the table cell', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -234,6 +272,65 @@ describe('admin AccountsView lite account list', () => {
       expect.objectContaining({ lite: '1' }),
       expect.objectContaining({ etag: null })
     )
+    wrapper.unmount()
+  })
+
+  it('closes the interval selector, resumes countdown and restores the saved minute interval', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    localStorage.setItem('account-auto-refresh', JSON.stringify({ enabled: true, interval_seconds: 30 }))
+    const wrapper = mountView()
+    await flushPromises()
+    const trigger = wrapper.get('button[aria-controls="account-auto-refresh-options"]')
+    await trigger.trigger('click')
+    expect(trigger.attributes('aria-expanded')).toBe('true')
+    const interval = wrapper.get('#account-auto-refresh-options').findAll('button')
+      .find(button => button.text() === 'admin.accounts.refreshInterval10m')!
+    await interval.trigger('click')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger.element)
+    expect(trigger.text()).toBe('Auto refresh: 10m 00s')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(trigger.text()).toBe('Auto refresh: 9m 59s')
+    expect(listWithEtag).not.toHaveBeenCalled()
+    wrapper.unmount()
+
+    const restored = mountView()
+    await flushPromises()
+    expect(restored.get('button[aria-controls="account-auto-refresh-options"]').text()).toBe('Auto refresh: 10m 00s')
+    restored.unmount()
+  })
+
+  it('keeps refresh idle between requests and animates only the pending request', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    localStorage.setItem('account-auto-refresh', JSON.stringify({ enabled: true, interval_seconds: 5 }))
+    let finish: (value: unknown) => void = () => {}
+    listWithEtag.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const wrapper = mountView()
+    await flushPromises()
+    const trigger = wrapper.get('button[aria-controls="account-auto-refresh-options"]')
+    expect(trigger.find('.animate-spin').exists()).toBe(false)
+    await vi.advanceTimersByTimeAsync(6000)
+    expect(listWithEtag).toHaveBeenCalledOnce()
+    expect(trigger.find('.animate-spin').exists()).toBe(true)
+    finish({ notModified: true, etag: 'compact-etag', data: null })
+    await flushPromises()
+    expect(trigger.find('.animate-spin').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('closes auto refresh options with Escape and restores focus without changing the enabled state', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const trigger = wrapper.get('button[aria-controls="account-auto-refresh-options"]')
+    await trigger.trigger('click')
+    const option = wrapper.get('#account-auto-refresh-options button')
+    expect(option.attributes('aria-pressed')).toBe('false')
+    await option.trigger('keydown', { key: 'Escape' })
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(trigger.element)
+    expect(trigger.text()).toBe('admin.accounts.autoRefresh')
     wrapper.unmount()
   })
 

@@ -18,31 +18,31 @@
           >
             <template #after>
               <!-- Auto Refresh Dropdown -->
-              <div class="relative" ref="autoRefreshDropdownRef">
+              <div class="relative" ref="autoRefreshDropdownRef" @keydown.esc.stop.prevent="closeAutoRefreshDropdown">
                 <button
+                  ref="autoRefreshTriggerRef"
                   @click="
                     showAutoRefreshDropdown = !showAutoRefreshDropdown;
                     showAccountToolsDropdown = false
                   "
                   class="btn btn-secondary px-2 md:px-3"
                   :title="t('admin.accounts.autoRefresh')"
+                  :aria-label="autoRefreshButtonLabel"
+                  :aria-expanded="showAutoRefreshDropdown"
+                  aria-controls="account-auto-refresh-options"
                 >
-                  <Icon name="refresh" size="sm" :class="[autoRefreshEnabled ? 'animate-spin' : '']" />
-                  <span class="hidden md:inline">
-                    {{
-                      autoRefreshEnabled
-                        ? t('admin.accounts.autoRefreshCountdown', { seconds: autoRefreshCountdown })
-                        : t('admin.accounts.autoRefresh')
-                    }}
-                  </span>
+                  <Icon name="refresh" size="sm" :class="{ 'animate-spin': autoRefreshFetching }" />
+                  <span class="hidden tabular-nums md:inline">{{ autoRefreshButtonLabel }}</span>
                 </button>
                 <div
                   v-if="showAutoRefreshDropdown"
+                  id="account-auto-refresh-options"
                   class="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
                 >
                   <div class="p-2">
                     <button
                       @click="setAutoRefreshEnabled(!autoRefreshEnabled)"
+                      :aria-pressed="autoRefreshEnabled"
                       class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
                     >
                       <span>{{ t('admin.accounts.enableAutoRefresh') }}</span>
@@ -53,6 +53,7 @@
                       v-for="sec in autoRefreshIntervals"
                       :key="sec"
                       @click="setAutoRefreshInterval(sec)"
+                      :aria-pressed="autoRefreshIntervalSeconds === sec"
                       class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
                     >
                       <span>{{ autoRefreshIntervalLabel(sec) }}</span>
@@ -191,12 +192,12 @@
           @select-all-results="handleSelectAllResults"
           @toggle-schedulable="handleBulkToggleSchedulable"
         />
-        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden" :aria-busy="loading" :inert="loading && accounts.length > 0">
         <DataTable
           ref="dataTableRef"
           :columns="cols"
           :data="accounts"
-          :loading="loading"
+          :loading="loading && accounts.length === 0"
           row-key="id"
           :server-side-sort="true"
           @sort="handleSort"
@@ -719,13 +720,25 @@ const sortState = reactive<AccountSortState>(loadInitialAccountSortState())
 // Auto refresh settings
 const showAutoRefreshDropdown = ref(false)
 const autoRefreshDropdownRef = ref<HTMLElement | null>(null)
+const autoRefreshTriggerRef = ref<HTMLButtonElement | null>(null)
 const AUTO_REFRESH_STORAGE_KEY = 'account-auto-refresh'
-const autoRefreshIntervals = [5, 10, 15, 30] as const
+const autoRefreshIntervals = [5, 10, 15, 30, 60, 300, 600] as const
 const autoRefreshEnabled = ref(false)
 const autoRefreshIntervalSeconds = ref<(typeof autoRefreshIntervals)[number]>(30)
 const autoRefreshCountdown = ref(0)
 const autoRefreshETag = ref<string | null>(null)
 const autoRefreshFetching = ref(false)
+const autoRefreshButtonLabel = computed(() => {
+  if (!autoRefreshEnabled.value) return t('admin.accounts.autoRefresh')
+  const seconds = Math.max(0, autoRefreshCountdown.value)
+  if (seconds >= 60) {
+    return t('admin.accounts.autoRefreshCountdownMinutes', {
+      minutes: Math.floor(seconds / 60),
+      seconds: String(seconds % 60).padStart(2, '0')
+    })
+  }
+  return t('admin.accounts.autoRefreshCountdown', { seconds })
+})
 const AUTO_REFRESH_SILENT_WINDOW_MS = 15000
 const autoRefreshSilentUntil = ref(0)
 const hasPendingListSync = ref(false)
@@ -943,6 +956,9 @@ const autoRefreshIntervalLabel = (sec: number) => {
   if (sec === 10) return t('admin.accounts.refreshInterval10s')
   if (sec === 15) return t('admin.accounts.refreshInterval15s')
   if (sec === 30) return t('admin.accounts.refreshInterval30s')
+  if (sec === 60) return t('admin.accounts.refreshInterval1m')
+  if (sec === 300) return t('admin.accounts.refreshInterval5m')
+  if (sec === 600) return t('admin.accounts.refreshInterval10m')
   return `${sec}s`
 }
 
@@ -1065,6 +1081,13 @@ const setAutoRefreshInterval = (seconds: (typeof autoRefreshIntervals)[number]) 
   if (autoRefreshEnabled.value) {
     autoRefreshCountdown.value = seconds
   }
+  closeAutoRefreshDropdown()
+}
+
+function closeAutoRefreshDropdown() {
+  if (!showAutoRefreshDropdown.value) return
+  showAutoRefreshDropdown.value = false
+  autoRefreshTriggerRef.value?.focus()
 }
 
 const toggleColumn = (key: string) => {

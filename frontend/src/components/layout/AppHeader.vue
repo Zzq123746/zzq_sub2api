@@ -1,5 +1,5 @@
 <template>
-  <header class="glass sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50">
+  <header class="sticky top-0 z-30 border-b border-gray-200/50 dark:border-dark-700/50" :class="isAdminInterface ? 'glass' : 'workspace-header backdrop-blur-xl'">
     <div class="flex h-16 items-center justify-between gap-2 px-2 sm:px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex shrink-0 items-center gap-2 sm:gap-4">
@@ -20,6 +20,12 @@
           </p>
         </div>
       </div>
+
+      <button v-if="!isAdminInterface" class="workspace-search" :aria-label="t('experience.search')" aria-haspopup="dialog" @click="openQuickNavigation">
+        <Icon name="search" size="sm" />
+        <span>{{ t('experience.search') }}</span>
+        <kbd>⌘ / Ctrl K</kbd>
+      </button>
 
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-3">
@@ -51,7 +57,7 @@
         </router-link>
 
         <!-- Language Switcher -->
-        <LocaleSwitcher />
+        <LocaleSwitcher :text-only="!isAdminInterface" />
 
         <!-- Subscription Progress (for users with active subscriptions; not mounted at all when the feature is off) -->
         <SubscriptionProgressMini v-if="user && subscriptionFeatureEnabled" />
@@ -252,6 +258,8 @@
 </template>
 
 <script setup lang="ts">
+import { useInterfaceMode } from '@/composables/useInterfaceMode'
+import { useQuickNavigation } from '@/composables/useQuickNavigation'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -266,6 +274,8 @@ import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { resolveRouteMetaKeys } from '@/router/title'
 import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 
+const { isAdminInterface } = useInterfaceMode()
+const { open: openQuickNavigation } = useQuickNavigation()
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()

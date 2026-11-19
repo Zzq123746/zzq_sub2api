@@ -1,3 +1,5 @@
+import homeModels from './homeModels'
+import experience from './experience'
 import adminAccessKeys from './adminAccessKeys'
 import mcp from './mcp'
 import landing from './landing'
@@ -9,6 +11,8 @@ import admin from './admin'
 import misc from './misc'
 
 export default {
+  homeModels,
+  ...experience,
   adminAccessKeys,
   mcp,
   ...landing,

@@ -1,7 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
+  <div class="min-h-screen" :class="isAdminInterface ? 'admin-shell bg-gray-50 dark:bg-dark-950' : 'workspace-shell'">
     <!-- Background Decoration -->
-    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
+    <div v-if="!isAdminInterface" aria-hidden="true" class="workspace-backdrop pointer-events-none fixed inset-0"><AtmosphereBackground /></div>
+    <div v-else aria-hidden="true" class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
 
     <!-- Sidebar -->
     <AppSidebar />
@@ -15,7 +16,7 @@
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="p-4 md:p-6 lg:p-8">
+      <main class="p-4 md:p-6 lg:p-8" :class="{ 'workspace-content': !isAdminInterface }">
         <slot />
       </main>
     </div>
@@ -23,6 +24,8 @@
 </template>
 
 <script setup lang="ts">
+import { useInterfaceMode } from '@/composables/useInterfaceMode'
+import AtmosphereBackground from '@/components/brand/AtmosphereBackground.vue'
 import '@/styles/onboarding.css'
 import { computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores'
@@ -32,6 +35,7 @@ import { useOnboardingStore } from '@/stores/onboarding'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
 
+const { isAdminInterface } = useInterfaceMode()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)

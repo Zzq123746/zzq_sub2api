@@ -1,16 +1,30 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-4xl space-y-6">
+    <div class="billing-page mx-auto max-w-6xl space-y-6" :class="{ 'billing-page-compact': selectedPlan || paymentPhase === 'paying' }">
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
       </div>
       <template v-else>
+        <header v-if="paymentPhase === 'select' && !selectedPlan" class="billing-heading">
+          <div>
+            <h2>{{ t('payment.title') }}</h2>
+            <p>{{ t('payment.checkoutIntro') }}</p>
+          </div>
+          <RouterLink to="/orders" class="billing-orders-link">
+            <Icon name="clock" size="sm" />
+            {{ t('payment.viewOrders') }}
+          </RouterLink>
+        </header>
         <!-- Tab Switcher (hide during payment and subscription confirm) -->
-        <div v-if="tabs.length > 1 && paymentPhase === 'select' && !selectedPlan" class="flex space-x-1 rounded-xl bg-gray-100 p-1 dark:bg-dark-800">
+        <div v-if="tabs.length > 1 && paymentPhase === 'select' && !selectedPlan" class="billing-tabs" :aria-label="t('payment.title')">
           <button v-for="tab in tabs" :key="tab.key"
-            class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all"
-            :class="activeTab === tab.key ? 'bg-white text-gray-900 shadow dark:bg-dark-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
-            @click="activeTab = tab.key">{{ tab.label }}</button>
+            type="button"
+            :aria-pressed="activeTab === tab.key"
+            :class="{ 'is-active': activeTab === tab.key }"
+            @click="activeTab = tab.key">
+            <Icon :name="tab.key === 'recharge' ? 'creditCard' : 'gift'" size="sm" />
+            {{ tab.label }}
+          </button>
         </div>
         <!-- Payment in progress (shared by recharge and subscription) -->
         <template v-if="paymentPhase === 'paying'">
@@ -40,81 +54,103 @@
           <!-- Top-up Tab -->
           <template v-else-if="activeTab === 'recharge'">
             <!-- Recharge Account Card -->
-            <div class="card p-5">
-              <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
-              <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
-              <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
+            <div class="billing-account">
+              <div class="billing-account-owner">
+                <span class="billing-wallet-icon"><Icon name="creditCard" size="lg" /></span>
+                <div>
+                  <p class="billing-caption">{{ t('payment.rechargeAccount') }}</p>
+                  <p class="billing-account-name">{{ user?.username || user?.email || t('payment.tabTopUp') }}</p>
+                </div>
+              </div>
+              <div class="billing-balance">
+                <p class="billing-caption">{{ t('payment.currentBalance') }}</p>
+                <p><span>$</span>{{ user?.balance?.toFixed(2) || '0.00' }}<small>USD</small></p>
+              </div>
             </div>
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
-            <template v-else>
-            <div class="card p-6">
-              <!-- 充值赠送活动文案（后台 Markdown 配置，空则不渲染） -->
-              <div
-                v-if="renderedBonusNotice"
-                class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 [&_a]:font-medium [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_ol]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:my-1 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:ml-5 [&_ul]:list-disc"
-                data-testid="recharge-bonus-notice"
-                v-html="renderedBonusNotice"
-              ></div>
-              <AmountInput
-                v-model="amount"
-                :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
-                :min="globalMinAmount"
-                :max="globalMaxAmount"
-                :bonus-tiers="rechargeBonusTiers"
-                :bonus-mode="rechargeBonusMode"
-                :multiplier="balanceRechargeMultiplier"
-                :currency="selectedCurrency"
-              />
-              <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
+            <div v-else class="billing-recharge-grid">
+              <section class="billing-panel billing-amount-panel">
+                <div class="billing-section-heading">
+                  <h3>{{ t('payment.amountLabel') }}</h3>
+                  <p>{{ t('payment.chooseAmountHint') }}</p>
+                </div>
+                <!-- 充值赠送活动文案（后台 Markdown 配置，空则不渲染） -->
+                <div
+                  v-if="renderedBonusNotice"
+                  class="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100 [&_a]:font-medium [&_a]:underline [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_ol]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:my-1 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:ml-5 [&_ul]:list-disc"
+                  data-testid="recharge-bonus-notice"
+                  v-html="renderedBonusNotice"
+                ></div>
+                <AmountInput
+                  v-model="amount"
+                  :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
+                  :min="globalMinAmount"
+                  :max="globalMaxAmount"
+                  :bonus-tiers="rechargeBonusTiers"
+                  :bonus-mode="rechargeBonusMode"
+                  :multiplier="balanceRechargeMultiplier"
+                  :currency="selectedCurrency"
+                />
+                <p v-if="amountError" role="status" class="mt-3 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
+              </section>
+              <aside class="billing-panel billing-checkout" :aria-label="t('payment.orderSummary')">
+                <div class="billing-section-heading">
+                  <h3>{{ t('payment.orderSummary') }}</h3>
+                  <p>{{ t('payment.reviewPaymentHint') }}</p>
+                </div>
+                <div v-if="enabledMethods.length >= 1" class="billing-methods">
+                  <PaymentMethodSelector
+                    :methods="methodOptions"
+                    :selected="selectedMethod"
+                    @select="selectedMethod = $event"
+                  />
+                </div>
+                <div v-if="validAmount > 0" class="billing-breakdown">
+                  <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.paymentAmount') }}</span>
+                      <span :class="discountAmount > 0 ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-900 dark:text-white'">{{ formatSelectedPaymentAmount(validAmount) }}</span>
+                    </div>
+                    <div v-if="discountAmount > 0" class="flex justify-between" data-testid="recharge-discount-row">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.discountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
+                      <span class="font-medium text-red-600 dark:text-red-400">-{{ formatSelectedPaymentAmount(discountAmount) }}</span>
+                    </div>
+                    <div v-if="feeRate > 0" class="flex justify-between">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
+                      <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
+                    </div>
+                    <div v-if="showBonusRow" class="flex justify-between" data-testid="recharge-bonus-row">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.amountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
+                      <span class="font-medium text-red-600 dark:text-red-400">+${{ bonusQuote.bonus.toFixed(2) }}</span>
+                    </div>
+                    <div v-if="showCreditedBalance" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showBonusRow }" data-testid="recharge-credited-row">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
+                      <span :class="bonusQuote.percent > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'">${{ creditedAmount.toFixed(2) }}</span>
+                    </div>
+                    <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
+                      {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: formatBalanceRechargeMultiplier(balanceRechargeMultiplier) }) }}
+                    </p>
+                  </div>
+                </div>
+                <div v-else class="billing-summary-empty">
+                  <Icon name="creditCard" size="lg" />
+                  <p>{{ t('payment.selectAmountHint') }}</p>
+                </div>
+                <div class="billing-total" aria-live="polite" aria-atomic="true">
+                  <span>{{ t('payment.actualPay') }}</span>
+                  <strong>{{ formatSelectedPaymentAmount(totalAmount) }}<small>{{ selectedCurrency }}</small></strong>
+                </div>
+                <button :class="['btn billing-pay-button w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
+                  <span v-if="submitting" class="flex items-center justify-center gap-2">
+                    <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                    {{ t('common.processing') }}
+                  </span>
+                  <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(totalAmount) }}</span>
+                </button>
+              </aside>
             </div>
-            <div v-if="enabledMethods.length >= 1" class="card p-6">
-              <PaymentMethodSelector
-                :methods="methodOptions"
-                :selected="selectedMethod"
-                @select="selectedMethod = $event"
-              />
-            </div>
-            <div v-if="validAmount > 0" class="card p-6">
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.paymentAmount') }}</span>
-                  <span :class="discountAmount > 0 ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-900 dark:text-white'">{{ formatSelectedPaymentAmount(validAmount) }}</span>
-                </div>
-                <div v-if="discountAmount > 0" class="flex justify-between" data-testid="recharge-discount-row">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.discountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
-                  <span class="font-medium text-red-600 dark:text-red-400">-{{ formatSelectedPaymentAmount(discountAmount) }}</span>
-                </div>
-                <div v-if="feeRate > 0" class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
-                </div>
-                <div v-if="showActualPay" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
-                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                  <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
-                </div>
-                <div v-if="showBonusRow" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showActualPay }" data-testid="recharge-bonus-row">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.rechargeBonus.amountLabelWithPercent', { percent: formatRechargeBonusNumber(bonusQuote.percent) }) }}</span>
-                  <span class="font-medium text-red-600 dark:text-red-400">+${{ bonusQuote.bonus.toFixed(2) }}</span>
-                </div>
-                <div v-if="showCreditedBalance" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': !showActualPay && !showBonusRow }" data-testid="recharge-credited-row">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
-                  <span :class="bonusQuote.percent > 0 ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'">${{ creditedAmount.toFixed(2) }}</span>
-                </div>
-                <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
-                  {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: balanceRechargeMultiplier.toFixed(2) }) }}
-                </p>
-              </div>
-            </div>
-            <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
-              <span v-if="submitting" class="flex items-center justify-center gap-2">
-                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                {{ t('common.processing') }}
-              </span>
-              <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(totalAmount) }}</span>
-            </button>
-            </template>
           </template>
           <!-- Subscribe Tab -->
           <template v-else-if="activeTab === 'subscription'">
@@ -206,6 +242,10 @@
             </template>
             <!-- Plan list -->
             <template v-else>
+              <div class="billing-section-heading billing-plans-heading">
+                <h3>{{ t('payment.selectPlan') }}</h3>
+                <p>{{ t('payment.choosePlanHint') }}</p>
+              </div>
               <div v-if="checkout.plans.length === 0" class="card py-16 text-center">
                 <Icon name="gift" size="xl" class="mx-auto mb-3 text-gray-300 dark:text-dark-600" />
                 <p class="text-gray-500 dark:text-gray-400">{{ t('payment.noPlans') }}</p>
@@ -284,7 +324,7 @@ import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import '@/styles/announcement-markdown.css'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
@@ -295,7 +335,7 @@ import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiErro
 import { isMobileDevice } from '@/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
-import { formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers, quoteRechargeBonus } from '@/utils/rechargeBonus'
+import { formatBalanceRechargeMultiplier, formatRechargeBonusNumber, normalizeRechargeBonusMode, normalizeRechargeBonusTiers, quoteRechargeBonus } from '@/utils/rechargeBonus'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -696,7 +736,6 @@ const totalAmount = computed(() =>
     ? Math.round((payBaseAmount.value + feeAmount.value) * 100) / 100
     : payBaseAmount.value
 )
-const showActualPay = computed(() => feeRate.value > 0 || discountAmount.value > 0)
 
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
@@ -1224,3 +1263,73 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.billing-page {
+  --billing-accent: #376cbd;
+  --billing-tint: #eff5ff;
+  color: var(--experience-ink);
+}
+.dark .billing-page { --billing-accent: #a6c7ff; --billing-tint: #202c42; }
+.billing-page-compact { max-width: 56rem; }
+.billing-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 4px; }
+.billing-heading h2 { font-size: 28px; font-weight: 600; line-height: 1.4; letter-spacing: var(--experience-heading-tracking); }
+.billing-heading p, .billing-section-heading p { margin-top: 8px; color: var(--experience-muted); font-size: 13px; line-height: 1.7; }
+.billing-orders-link { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; padding: 9px 12px; border: 1px solid var(--experience-border); border-radius: 9px; background: var(--experience-surface); color: var(--experience-muted); font-size: 12px; }
+.billing-orders-link:hover { border-color: var(--billing-accent); color: var(--billing-accent); }
+.billing-tabs { display: flex; gap: 28px; border-bottom: 1px solid var(--experience-border); }
+.billing-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-width: 104px; padding: 14px 8px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--experience-muted); font-size: 14px; font-weight: 500; }
+.billing-tabs button:hover { color: var(--experience-ink); }
+.billing-tabs button.is-active { border-bottom-color: var(--billing-accent); color: var(--billing-accent); }
+.billing-account { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px 28px; border: 1px solid var(--experience-border); border-radius: 16px; background: var(--experience-surface); }
+.billing-account-owner { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.billing-account-owner > div { min-width: 0; }
+.billing-wallet-icon { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 14px; background: var(--billing-tint); color: var(--billing-accent); }
+.billing-caption { color: var(--experience-muted); font-size: 12px; }
+.billing-account-name { margin-top: 5px; font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.billing-balance { text-align: right; flex-shrink: 0; }
+.billing-balance > p:last-child { display: flex; justify-content: flex-end; align-items: baseline; gap: 6px; margin-top: 3px; font-size: 30px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.billing-balance span { color: var(--experience-muted); font-size: 19px; font-weight: 400; }
+.billing-balance small { color: var(--experience-muted); font-size: 11px; font-weight: 400; margin-left: 3px; }
+.billing-recharge-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr); align-items: start; gap: 24px; }
+.billing-panel { min-width: 0; padding: 28px; border: 1px solid var(--experience-border); border-radius: 16px; background: var(--experience-surface); }
+.billing-section-heading { margin-bottom: 26px; }
+.billing-section-heading h3 { font-size: 17px; font-weight: 600; }
+.billing-section-heading p { margin-top: 5px; }
+.billing-checkout { position: sticky; top: 88px; }
+.billing-methods :deep([data-testid='payment-method-grid']) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); }
+.billing-methods :deep([data-testid='payment-method-label']) { font-size: 14px; }
+.billing-methods :deep(.payment-method-option > span:last-child) { justify-content: flex-start; }
+.billing-breakdown { padding-top: 24px; margin-top: 24px; border-top: 1px solid var(--experience-border); font-variant-numeric: tabular-nums; }
+.billing-breakdown :deep(.flex.justify-between) { gap: 16px; }
+.billing-breakdown :deep(.flex.justify-between > span:last-child) { text-align: right; }
+.billing-summary-empty { display: flex; align-items: flex-start; gap: 10px; padding: 22px 0; margin-top: 18px; color: var(--experience-muted); }
+.billing-summary-empty svg { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; }
+.billing-summary-empty p { font-size: 12px; line-height: 1.8; }
+.billing-total { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--experience-border); }
+.billing-total > span { color: var(--experience-muted); font-size: 13px; }
+.billing-total strong { font-size: 28px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.billing-total small { margin-left: 7px; color: var(--experience-muted); font-size: 10px; font-weight: 400; }
+.billing-page .billing-pay-button { margin-top: 20px; min-height: 48px; border-radius: 10px; font-size: 14px; box-shadow: none; }
+.billing-page .billing-pay-button:disabled { opacity: 1; background: var(--billing-tint); color: var(--experience-muted); cursor: not-allowed; }
+.billing-plans-heading { margin-bottom: 20px; }
+.billing-page :is(button, a):focus-visible { outline: 2px solid var(--billing-accent); outline-offset: 4px; }
+@media (max-width: 1199px) {
+  .billing-recharge-grid { gap: 20px; grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr); }
+  .billing-panel { padding: 22px; }
+}
+@media (max-width: 767px) {
+  .billing-recharge-grid { grid-template-columns: minmax(0, 1fr); }
+  .billing-checkout { position: static; }
+  .billing-heading { align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .billing-heading h2 { font-size: 24px; }
+  .billing-account { padding: 20px; }
+}
+@media (max-width: 420px) {
+  .billing-panel { padding: 20px 16px; }
+  .billing-account { padding: 18px 16px; gap: 18px; align-items: flex-start; flex-direction: column; }
+  .billing-wallet-icon { width: 40px; height: 40px; border-radius: 11px; }
+  .billing-balance { text-align: left; padding-left: 56px; }
+  .billing-balance > p:last-child { justify-content: flex-start; }
+}
+</style>
